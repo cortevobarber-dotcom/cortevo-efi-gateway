@@ -234,6 +234,31 @@ const server = http.createServer(async (req, res) => {
       });
     }
 
+    if (req.method === "POST" && url.pathname === "/diag-cartao") {
+      const b = await readBody(req);
+      const tk = await token("boleto");
+      const cust = { name: "Marcos Vinicius Teste", email: "cortevobarber@gmail.com", cpf: "12345678909", phone_number: "31999999999" };
+      const items = [{ name: "Teste", value: 100, amount: 1 }];
+      const tok = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+      const tentativas = {
+        one_step_token: { url: "/v1/charge/one-step", body: { items, payment: { credit_card: { installments: 1, payment_token: tok, customer: cust } } } },
+        one_step_camel: { url: "/v1/charge/one-step", body: { items, payment: { credit_card: { installments: 1, paymentToken: tok, customer: cust } } } },
+        one_step_raiz: { url: "/v1/charge/one-step", body: { items, payment_token: tok, payment: { credit_card: { installments: 1, customer: cust } } } },
+        charge_direto: { url: "/v1/charge", body: { items, payment: { credit_card: { installments: 1, payment_token: tok, customer: cust } } } },
+      };
+      const out = {};
+      for (const [k, v] of Object.entries(tentativas)) {
+        const r = await request(`${ENVS[ENV].base}${v.url}`, { method: "POST", headers: { Authorization: `Bearer ${tk}` }, body: v.body });
+        out[k] = { status: r.status, body: r.body };
+        if (r.status < 300 && r.body?.data?.charge_id) {
+          const pay = await request(`${ENVS[ENV].base}/v1/charge/${r.body.data.charge_id}/pay`, { method: "POST", headers: { Authorization: `Bearer ${tk}` }, body: { payment: { credit_card: { payment_token: tok } } } });
+          out[k].pay = { status: pay.status, body: pay.body };
+          break;
+        }
+      }
+      return json(res, 200, { env: ENV, out });
+    }
+
     if (req.method === "POST" && url.pathname === "/estorno") {
       const b = await readBody(req);
       if (!b.charge_id) return json(res, 400, { error: "charge_id é obrigatório" });
