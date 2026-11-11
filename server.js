@@ -177,7 +177,7 @@ const server = http.createServer(async (req, res) => {
     if (req.method === "GET" && url.pathname === "/config") {
       return json(res, 200, {
         env: ENV,
-        payee_code: process.env.EFI_PAYEE_CODE || "",
+        payee_code: process.env.EFI_PAYEE_CODE || "430f73ecf4c01a337f63663bbff58a5a",
         js: "https://cdn.jsdelivr.net/npm/payment-token-efi@1/dist/index.min.js",
       });
     }
