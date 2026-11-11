@@ -193,6 +193,35 @@ const server = http.createServer(async (req, res) => {
       return json(res, 200, ULTIMA);
     }
 
+    if (req.method === "GET" && url.pathname === "/diag") {
+      const page = `<!doctype html><html><head><meta charset="utf-8"><title>diag cartao</title></head><body style="font-family:monospace;padding:16px">
+<pre id="o">rodando...</pre>
+<script src="https://cdn.jsdelivr.net/npm/payment-token-efi@3.5.0/dist/payment-token-efi-umd.min.js"></script>
+<script>
+const o=document.getElementById('o');
+const log=(k,v)=>{o.textContent+="\\n"+k+": "+(typeof v==="string"?v:JSON.stringify(v));};
+(async()=>{
+  try{
+    const cfg=await fetch('/config',{headers:{'x-api-key':'cortevo-gw-2026-cartao'}}).then(r=>r.json());
+    log('payee',cfg.payee_code);log('env',cfg.env);
+    const tk=await window.EfiPay.CreditCard.setAccount(cfg.payee_code).setEnvironment('production')
+      .setCreditCardData({brand:'visa',number:'4111111111111111',cvv:'123',expirationMonth:'12',expirationYear:'2030',holderName:'TESTE DIAG',holderDocument:'12345678909',reuse:false})
+      .getPaymentToken();
+    log('token_res',tk);
+    const t=tk&&(tk.payment_token||tk.paymentToken);
+    log('token_len',t?t.length:0);
+    const r=await fetch('/cartao',{method:'POST',headers:{'content-type':'application/json','x-api-key':'cortevo-gw-2026-cartao'},
+      body:JSON.stringify({amount_cents:100,description:'diag',installments:1,payment_token:t,
+        customer:{name:'TESTE DIAG',email:'cortevobarber@gmail.com',cpf:'12345678909',phone:'31999999999'}})});
+    log('cartao_status',r.status);log('cartao_body',await r.text());
+  }catch(e){log('ERRO',e&&(e.message||JSON.stringify(e)));}
+})();
+</script></body></html>`;
+      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+      res.end(page);
+      return;
+    }
+
     if (req.method === "GET" && url.pathname === "/config") {
       return json(res, 200, {
         env: ENV,
