@@ -300,7 +300,7 @@ async function estornar(){
   if(!ultimo) return;
   bt.disabled=true; say("Estornando...");
   try{
-    const r=await fetch("/estornar",{method:"POST",headers:{"Content-Type":"application/json","x-api-key":KEY},body:JSON.stringify({charge_id:ultimo})});
+    const r=await fetch("/estorno",{method:"POST",headers:{"Content-Type":"application/json","x-api-key":KEY},body:JSON.stringify({charge_id:ultimo})});
     const d=await r.json().catch(()=>({}));
     if(r.ok) say("ESTORNADO\\nCobrança "+ultimo+" estornada. O valor volta para o cartão em até 2 faturas."), out.className="ok";
     else say("Não consegui estornar: "+(d.error_description||d.error||d.message||"erro"),"err");
@@ -390,6 +390,13 @@ const log=(k,v)=>{o.textContent+="\\n"+k+": "+(typeof v==="string"?v:JSON.string
         body,
       });
       if (r.status >= 300) return json(res, r.status, r.body);
+      ULTIMA = {
+        at: new Date().toISOString(),
+        env: ENV,
+        origem: "cartao",
+        efi_status: r.status,
+        efi_resposta: r.body,
+      };
       const d = r.body.data || {};
       return json(res, 200, {
         charge_id: d.charge_id,
@@ -425,6 +432,16 @@ const log=(k,v)=>{o.textContent+="\\n"+k+": "+(typeof v==="string"?v:JSON.string
         }
       }
       return json(res, 200, { env: ENV, out });
+    }
+
+    if (req.method === "GET" && url.pathname.startsWith("/cobranca/")) {
+      const id = url.pathname.split("/")[2];
+      const tk = await token("boleto");
+      const r = await request(`${ENVS[ENV].base}/v1/charge/${encodeURIComponent(id)}`, {
+        method: "GET",
+        headers: { Authorization: `Bearer ${tk}` },
+      });
+      return json(res, r.status, r.body);
     }
 
     if (req.method === "POST" && url.pathname === "/estorno") {
