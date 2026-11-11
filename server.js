@@ -101,10 +101,9 @@ const server = http.createServer(async (req, res) => {
   try {
     if (req.url === "/health") return json(res, 200, { ok: true, env: ENV });
 
+    const url = new URL(req.url, "http://localhost");
     const publico = req.method === "GET" && (url.pathname === "/diag" || url.pathname === "/health");
     if (!publico && API_KEY && req.headers["x-api-key"] !== API_KEY) return json(res, 401, { error: "não autorizado" });
-
-    const url = new URL(req.url, "http://localhost");
 
     if (req.method === "POST" && url.pathname === "/boleto") {
       const b = await readBody(req);
@@ -142,8 +141,7 @@ const server = http.createServer(async (req, res) => {
         efi_resposta: r.body,
       };
       if (r.status >= 300) {
-        const codigo = r.body?.code;
-        const extra = codigo === 3500010 ? { dica: "O Efí não reconheceu o token do cartão: token já usado, expirado ou gerado em outro ambiente/conta." } : {};
+        const extra = r.body?.code === 3500010 ? { dica: "token do cartão não reconhecido pelo Efí" } : {};
         return json(res, r.status, { ...r.body, ...extra });
       }
       const d = r.body.data || {};
