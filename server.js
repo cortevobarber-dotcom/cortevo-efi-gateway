@@ -101,7 +101,8 @@ const server = http.createServer(async (req, res) => {
   try {
     if (req.url === "/health") return json(res, 200, { ok: true, env: ENV });
 
-    if (API_KEY && req.headers["x-api-key"] !== API_KEY) return json(res, 401, { error: "não autorizado" });
+    const publico = req.method === "GET" && (url.pathname === "/diag" || url.pathname === "/health");
+    if (!publico && API_KEY && req.headers["x-api-key"] !== API_KEY) return json(res, 401, { error: "não autorizado" });
 
     const url = new URL(req.url, "http://localhost");
 
