@@ -184,16 +184,27 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === "POST" && url.pathname === "/cartao") {
       const b = await readBody(req);
-      if (!b.amount_cents || !b.payment_token || !b.customer?.cpf) {
-        return json(res, 400, { error: "amount_cents, payment_token e customer.cpf são obrigatórios" });
+      const temToken = !!b.payment_token;
+      const temCartao = !!b.card?.number;
+      if (!b.amount_cents || (!temToken && !temCartao) || !b.customer?.cpf) {
+        return json(res, 400, { error: "amount_cents, customer.cpf e payment_token ou card{number,holder,exp_month,exp_year,cvv} são obrigatórios" });
       }
       const tk = await token("boleto");
+      const cartaoToken = temToken
+        ? { payment_token: String(b.payment_token) }
+        : {
+            card_number: String(b.card.number).replace(/\D/g, ""),
+            holder_name: String(b.card.holder || b.customer.name || ""),
+            expiration_month: Number(b.card.exp_month),
+            expiration_year: Number(String(b.card.exp_year).length === 2 ? "20" + b.card.exp_year : b.card.exp_year),
+            cvv: String(b.card.cvv || "").replace(/\D/g, ""),
+          };
       const body = {
         items: [{ name: (b.description || "Mensalidade Cortevo").slice(0, 100), value: Number(b.amount_cents), amount: 1 }],
         payment: {
           credit_card: {
             installments: Math.min(Math.max(Number(b.installments || 1), 1), 12),
-            payment_token: String(b.payment_token),
+            ...cartaoToken,
             customer: {
               name: b.customer.name,
               email: b.customer.email,
