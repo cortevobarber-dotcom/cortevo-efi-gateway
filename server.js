@@ -102,7 +102,7 @@ const server = http.createServer(async (req, res) => {
     if (req.url === "/health") return json(res, 200, { ok: true, env: ENV });
 
     const url = new URL(req.url, "http://localhost");
-    const publico = req.method === "GET" && (url.pathname === "/diag" || url.pathname === "/diag-token" || url.pathname === "/pagamento" || url.pathname === "/health");
+    const publico = req.method === "GET" && (url.pathname === "/diag" || url.pathname === "/diag-token" || url.pathname === "/diag" || url.pathname === "/diag-token" || url.pathname === "/pagamento" || url.pathname === "/health");
     if (!publico && API_KEY && req.headers["x-api-key"] !== API_KEY) return json(res, 401, { error: "não autorizado" });
 
     if (req.method === "POST" && url.pathname === "/boleto") {
