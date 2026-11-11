@@ -272,7 +272,7 @@ bt.onclick=async()=>{
       customer:{name:"MARCOS VINICIUS BATISTA MENDES",email:"info.markesevolution@gmail.com",cpf:cpf,phone:"31990896794"}
     })});
     const d=await r.json().catch(()=>({error:"resposta inválida"}));
-    if(r.ok&&d.charge_id){
+    if(r.ok&&d.charge_id&&String(d.status||"").toLowerCase()==="paid"){
       ultimo=d.charge_id;
       say("APROVADO\\nCobrança: "+d.charge_id+"\\nCartão: "+(d.card_brand||"")+" •••• "+(d.card_mask||"").slice(-4)+"\\nValor: R$ 5,00");
       out.className="ok";
@@ -281,7 +281,7 @@ bt.onclick=async()=>{
       bt.onclick=estornar;
     }else{
       const code=d.code||d.error_code||"";
-      let msg="Não autorizado pelo banco.";
+      let msg=d.reason||"Não autorizado pelo banco.";
       if(code===4600036) msg="Valor abaixo do mínimo do Efí (R$ 3,00).";
       else if(code===3500010) msg="Token do cartão recusado. Recarregue a página e tente de novo.";
       else if(code===3500052) msg="Cartão sem limite ou bloqueado pelo banco.";
@@ -403,8 +403,10 @@ const log=(k,v)=>{o.textContent+="\\n"+k+": "+(typeof v==="string"?v:JSON.string
         status: d.status,
         total_cents: d.total,
         installments: d.installments,
-        card_mask: d.payment?.credit_card?.mask,
-        card_brand: d.payment?.credit_card?.brand,
+        status: d.status,
+        reason: d.reason || "",
+        card_mask: d.payment?.credit_card?.mask || "",
+        card_brand: d.payment?.credit_card?.brand || d.payment?.credit_card?.card_brand || "",
         env: ENV,
       });
     }
