@@ -178,7 +178,7 @@ const server = http.createServer(async (req, res) => {
       return json(res, 200, {
         env: ENV,
         payee_code: process.env.EFI_PAYEE_CODE || "430f73ecf4c01a337f63663bbff58a5a",
-        js: "https://cdn.jsdelivr.net/npm/payment-token-efi@1/dist/index.min.js",
+        js: "https://cdn.jsdelivr.net/npm/payment-token-efi@3.5.0/dist/payment-token-efi-umd.min.js",
       });
     }
 
