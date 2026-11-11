@@ -7,7 +7,7 @@ const ENVS = {
   hml: { base: "https://cobrancas-h.api.efipay.com.br", pix: "https://pix-h.api.efipay.com.br" },
 };
 const ENV = process.env.EFI_ENV === "prod" ? "prod" : "hml";
-const API_KEY = process.env.GATEWAY_API_KEY || process.env.GATEWAY_KEY_ALT || process.env.GATEWAY_ALT || "";
+const API_KEY = process.env.GATEWAY_API_KEY || process.env.GATEWAY_ALT || "cortevo-gw-2026-cartao";
 const PORT = Number(process.env.PORT || 8080);
 
 function creds() {
