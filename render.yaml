@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: cortevo-efi-gateway
+    runtime: node
+    plan: free
+    buildCommand: npm install --omit=dev
+    startCommand: node server.js
+    healthCheckPath: /health
+    envVars:
+      - key: EFI_ENV
+        value: prod
+      - key: EFI_CLIENT_ID
+        sync: false
+      - key: EFI_CLIENT_SECRET
+        sync: false
+      - key: EFI_CERT_B64
+        sync: false
+      - key: EFI_KEY_B64
+        sync: false
+      - key: GATEWAY_API_KEY
+        generateValue: true
+      - key: EFI_PAYEE_CODE
+        sync: false
+      - key: EFI_PIX_KEY
+        sync: false
