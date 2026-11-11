@@ -234,6 +234,19 @@ const server = http.createServer(async (req, res) => {
       });
     }
 
+    if (req.method === "POST" && url.pathname === "/estorno") {
+      const b = await readBody(req);
+      if (!b.charge_id) return json(res, 400, { error: "charge_id é obrigatório" });
+      const tk = await token("boleto");
+      const r = await request(`${ENVS[ENV].base}/v1/charge/${encodeURIComponent(b.charge_id)}/refund`, {
+        method: "PUT",
+        headers: { Authorization: `Bearer ${tk}` },
+        body: {},
+      });
+      if (r.status >= 300) return json(res, r.status, r.body);
+      return json(res, 200, { ok: true, charge_id: b.charge_id, status: r.body?.data?.status, env: ENV });
+    }
+
     if (req.method === "POST" && url.pathname === "/assinatura") {
       const b = await readBody(req);
       if (!b.amount_cents || !b.payment_token || !b.customer?.cpf) {
