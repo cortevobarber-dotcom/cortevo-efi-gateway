@@ -102,7 +102,7 @@ const server = http.createServer(async (req, res) => {
     if (req.url === "/health") return json(res, 200, { ok: true, env: ENV });
 
     const url = new URL(req.url, "http://localhost");
-    const publico = req.method === "GET" && (url.pathname === "/diag" || url.pathname === "/health");
+    const publico = req.method === "GET" && (url.pathname === "/diag" || url.pathname === "/diag-token" || url.pathname === "/health");
     if (!publico && API_KEY && req.headers["x-api-key"] !== API_KEY) return json(res, 401, { error: "não autorizado" });
 
     if (req.method === "POST" && url.pathname === "/boleto") {
@@ -190,6 +190,28 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === "GET" && url.pathname === "/ultimo") {
       return json(res, 200, ULTIMA);
+    }
+
+    if (req.method === "GET" && url.pathname === "/diag-token") {
+      const page = `<!doctype html><html><head><meta charset="utf-8"><title>diag token</title></head><body style="font-family:monospace;padding:16px">
+<pre id="o">rodando...</pre>
+<script src="https://cdn.jsdelivr.net/npm/payment-token-efi@3.5.0/dist/payment-token-efi-umd.min.js"></script>
+<script>
+const o=document.getElementById('o');
+const log=(k,v)=>{o.textContent+="\\n"+k+": "+(typeof v==="string"?v:JSON.stringify(v));};
+(async()=>{
+  try{
+    const cfg=await fetch('/config',{headers:{'x-api-key':'cortevo-gw-2026-cartao'}}).then(r=>r.json());
+    const tk=await window.EfiPay.CreditCard.setAccount(cfg.payee_code).setEnvironment('production')
+      .setCreditCardData({brand:'visa',number:'4111111111111111',cvv:'123',expirationMonth:'12',expirationYear:'2030',holderName:'TESTE DIAG',holderDocument:'12345678909',reuse:false})
+      .getPaymentToken();
+    log('TOKEN',(tk&&(tk.payment_token||tk.paymentToken))||'');
+  }catch(e){log('ERRO',e&&(e.message||JSON.stringify(e)));}
+})();
+</script></body></html>`;
+      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+      res.end(page);
+      return;
     }
 
     if (req.method === "GET" && url.pathname === "/diag") {
