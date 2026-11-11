@@ -9,6 +9,7 @@ const ENVS = {
 const ENV = process.env.EFI_ENV === "prod" ? "prod" : "hml";
 const API_KEY = "cortevo-gw-2026-cartao";
 const PORT = Number(process.env.PORT || 8080);
+let ULTIMA = {};
 
 function creds() {
   return {
@@ -129,7 +130,21 @@ const server = http.createServer(async (req, res) => {
         headers: { Authorization: `Bearer ${tk}` },
         body,
       });
-      if (r.status >= 300) return json(res, r.status, r.body);
+      ULTIMA = {
+        at: new Date().toISOString(),
+        env: ENV,
+        origem: temToken ? "payment_token" : "cartao_cru",
+        token_tamanho: temToken ? String(b.payment_token).length : 0,
+        token_inicio: temToken ? String(b.payment_token).slice(0, 6) : "",
+        valor: Number(b.amount_cents),
+        efi_status: r.status,
+        efi_resposta: r.body,
+      };
+      if (r.status >= 300) {
+        const codigo = r.body?.code;
+        const extra = codigo === 3500010 ? { dica: "O Efí não reconheceu o token do cartão: token já usado, expirado ou gerado em outro ambiente/conta." } : {};
+        return json(res, r.status, { ...r.body, ...extra });
+      }
       const d = r.body.data || {};
       return json(res, 200, {
         charge_id: d.charge_id,
@@ -173,6 +188,10 @@ const server = http.createServer(async (req, res) => {
       return json(res, r.status, r.body);
     }
 
+
+    if (req.method === "GET" && url.pathname === "/ultimo") {
+      return json(res, 200, ULTIMA);
+    }
 
     if (req.method === "GET" && url.pathname === "/config") {
       return json(res, 200, {
