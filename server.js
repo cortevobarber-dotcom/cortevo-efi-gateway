@@ -250,7 +250,7 @@ const KEY="cortevo-gw-2026-cartao";
 const out=document.getElementById("out"), bt=document.getElementById("bt");
 let cfg=null, ultimo=null;
 const say=(msg,cls)=>{out.className=cls||"";out.textContent=msg;};
-const so=(v)=>String(v||"").replace(/\D/g,"");
+const so=(v)=>String(v||"").replace(/\\D/g,"");
 (async()=>{ try{ cfg=await fetch("/config",{headers:{"x-api-key":KEY}}).then(r=>r.json()); }catch(e){ say("Não consegui carregar a configuração.","err"); } })();
 bt.onclick=async()=>{
   const num=so(document.getElementById("num").value), nome=document.getElementById("nome").value.trim().toUpperCase();
@@ -274,7 +274,7 @@ bt.onclick=async()=>{
     const d=await r.json().catch(()=>({error:"resposta inválida"}));
     if(r.ok&&d.charge_id){
       ultimo=d.charge_id;
-      say("APROVADO\nCobrança: "+d.charge_id+"\nCartão: "+(d.card_brand||"")+" •••• "+(d.card_mask||"").slice(-4)+"\nValor: R$ 5,00");
+      say("APROVADO\\nCobrança: "+d.charge_id+"\\nCartão: "+(d.card_brand||"")+" •••• "+(d.card_mask||"").slice(-4)+"\\nValor: R$ 5,00");
       out.className="ok";
       bt.textContent="Estornar os R$ 5,00";
       bt.disabled=false;
@@ -288,7 +288,7 @@ bt.onclick=async()=>{
       else if(String(d.error_description||"").length) msg=d.error_description;
       else if(String(d.error||"").length) msg=d.error;
       else if(String(d.message||"").length) msg=d.message;
-      say("RECUSADO ("+code+")\n"+msg,"err");
+      say("RECUSADO ("+code+")\\n"+msg,"err");
       bt.disabled=false;
     }
   }catch(e){
@@ -302,7 +302,7 @@ async function estornar(){
   try{
     const r=await fetch("/estornar",{method:"POST",headers:{"Content-Type":"application/json","x-api-key":KEY},body:JSON.stringify({charge_id:ultimo})});
     const d=await r.json().catch(()=>({}));
-    if(r.ok) say("ESTORNADO\nCobrança "+ultimo+" estornada. O valor volta para o cartão em até 2 faturas."), out.className="ok";
+    if(r.ok) say("ESTORNADO\\nCobrança "+ultimo+" estornada. O valor volta para o cartão em até 2 faturas."), out.className="ok";
     else say("Não consegui estornar: "+(d.error_description||d.error||d.message||"erro"),"err");
   }catch(e){ say("Não consegui estornar: "+(e&&e.message||"erro"),"err"); }
   bt.textContent="Estornar novamente"; bt.disabled=false;
