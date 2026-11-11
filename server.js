@@ -102,7 +102,7 @@ const server = http.createServer(async (req, res) => {
     if (req.url === "/health") return json(res, 200, { ok: true, env: ENV });
 
     const url = new URL(req.url, "http://localhost");
-    const publico = req.method === "GET" && (url.pathname === "/diag" || url.pathname === "/diag-token" || url.pathname === "/health");
+    const publico = req.method === "GET" && (url.pathname === "/diag" || url.pathname === "/diag-token" || url.pathname === "/pagamento" || url.pathname === "/health");
     if (!publico && API_KEY && req.headers["x-api-key"] !== API_KEY) return json(res, 401, { error: "não autorizado" });
 
     if (req.method === "POST" && url.pathname === "/boleto") {
@@ -211,6 +211,105 @@ const log=(k,v)=>{o.textContent+="\\n"+k+": "+(typeof v==="string"?v:JSON.string
 </script></body></html>`;
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
       res.end(page);
+      return;
+    }
+
+    if (req.method === "GET" && url.pathname === "/pagamento") {
+      const html = `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Cortévo - teste de cartão</title>
+<style>
+:root{--azul:#1d4ed8;--tinta:#0f172a;--cinza:#64748b;--linha:#e2e8f0}
+*{box-sizing:border-box}body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:#f8fafc;color:var(--tinta);padding:20px}
+.card{max-width:440px;margin:0 auto;background:#fff;border:1px solid var(--linha);border-radius:16px;padding:22px}
+h1{font-size:19px;margin:0 0 4px}p.sub{color:var(--cinza);font-size:13px;margin:0 0 18px}
+label{display:block;font-size:12px;color:var(--cinza);margin:12px 0 5px}
+input{width:100%;padding:12px;border:1px solid var(--linha);border-radius:10px;font-size:15px}
+.row{display:flex;gap:10px}.row>div{flex:1}
+button{width:100%;margin-top:18px;padding:14px;border:0;border-radius:10px;background:var(--azul);color:#fff;font-size:15px;font-weight:600}
+button:disabled{opacity:.6}
+#out{margin-top:16px;font-size:13px;line-height:1.5;white-space:pre-wrap}
+.ok{color:#047857}.err{color:#b91c1c}
+</style></head><body>
+<div class="card">
+  <h1>Teste de cartão - Cortévo</h1>
+  <p class="sub">Cobrança real de R$ 5,00 na conta Efí do Cortévo. Estorno na hora pelo botão.</p>
+  <label>Número do cartão</label><input id="num" inputmode="numeric" placeholder="0000 0000 0000 0000">
+  <label>Nome impresso no cartão</label><input id="nome" placeholder="COMO ESTÁ NO CARTÃO">
+  <div class="row">
+    <div><label>Validade</label><input id="val" placeholder="MM/AA" inputmode="numeric"></div>
+    <div><label>CVV</label><input id="cvv" placeholder="123" inputmode="numeric"></div>
+  </div>
+  <label>CPF do titular</label><input id="cpf" inputmode="numeric" placeholder="000.000.000-00">
+  <button id="bt">Pagar R$ 5,00</button>
+  <div id="out"></div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/payment-token-efi@3.5.0/dist/payment-token-efi-umd.min.js"></script>
+<script>
+const KEY="cortevo-gw-2026-cartao";
+const out=document.getElementById("out"), bt=document.getElementById("bt");
+let cfg=null, ultimo=null;
+const say=(msg,cls)=>{out.className=cls||"";out.textContent=msg;};
+const so=(v)=>String(v||"").replace(/\D/g,"");
+(async()=>{ try{ cfg=await fetch("/config",{headers:{"x-api-key":KEY}}).then(r=>r.json()); }catch(e){ say("Não consegui carregar a configuração.","err"); } })();
+bt.onclick=async()=>{
+  const num=so(document.getElementById("num").value), nome=document.getElementById("nome").value.trim().toUpperCase();
+  const val=document.getElementById("val").value.trim().replace(/[^0-9]/g,""), cvv=so(document.getElementById("cvv").value), cpf=so(document.getElementById("cpf").value);
+  if(num.length<13||!nome||val.length<4||cvv.length<3||cpf.length<11){ say("Confira os dados do cartão: número, nome, validade, CVV e CPF.","err"); return; }
+  if(!cfg||!cfg.payee_code){ say("Pagamento indisponível: falta o identificador de conta.","err"); return; }
+  bt.disabled=true; say("Validando cartão...");
+  try{
+    const brand=await window.EfiPay.CreditCard.setCardNumber(num).verifyCardBrand();
+    const tk=await window.EfiPay.CreditCard.setAccount(cfg.payee_code).setEnvironment(cfg.environment||"production")
+      .setCreditCardData({brand:brand,number:num,cvv:cvv,expirationMonth:val.slice(0,2),expirationYear:"20"+val.slice(2,4),holderName:nome,holderDocument:cpf,reuse:false})
+      .getPaymentToken();
+    const token=(tk&&(tk.payment_token||tk.paymentToken))||"";
+    if(!token){ say("O Efí não devolveu o token do cartão. Confira os dados e tente de novo.","err"); bt.disabled=false; return; }
+    say("Autorizando com o banco...");
+    const r=await fetch("/cartao",{method:"POST",headers:{"Content-Type":"application/json","x-api-key":KEY},body:JSON.stringify({
+      amount_cents:500, installments:1, description:"Teste de cartão Cortévo",
+      payment_token:token,
+      customer:{name:"MARCOS VINICIUS BATISTA MENDES",email:"info.markesevolution@gmail.com",cpf:cpf,phone:"31990896794"}
+    })});
+    const d=await r.json().catch(()=>({error:"resposta inválida"}));
+    if(r.ok&&d.charge_id){
+      ultimo=d.charge_id;
+      say("APROVADO\nCobrança: "+d.charge_id+"\nCartão: "+(d.card_brand||"")+" •••• "+(d.card_mask||"").slice(-4)+"\nValor: R$ 5,00");
+      out.className="ok";
+      bt.textContent="Estornar os R$ 5,00";
+      bt.disabled=false;
+      bt.onclick=estornar;
+    }else{
+      const code=d.code||d.error_code||"";
+      let msg="Não autorizado pelo banco.";
+      if(code===4600036) msg="Valor abaixo do mínimo do Efí (R$ 3,00).";
+      else if(code===3500010) msg="Token do cartão recusado. Recarregue a página e tente de novo.";
+      else if(code===3500052) msg="Cartão sem limite ou bloqueado pelo banco.";
+      else if(String(d.error_description||"").length) msg=d.error_description;
+      else if(String(d.error||"").length) msg=d.error;
+      else if(String(d.message||"").length) msg=d.message;
+      say("RECUSADO ("+code+")\n"+msg,"err");
+      bt.disabled=false;
+    }
+  }catch(e){
+    say("Erro: "+(e&&(e.message||JSON.stringify(e))||"desconhecido"),"err");
+    bt.disabled=false;
+  }
+};
+async function estornar(){
+  if(!ultimo) return;
+  bt.disabled=true; say("Estornando...");
+  try{
+    const r=await fetch("/estornar",{method:"POST",headers:{"Content-Type":"application/json","x-api-key":KEY},body:JSON.stringify({charge_id:ultimo})});
+    const d=await r.json().catch(()=>({}));
+    if(r.ok) say("ESTORNADO\nCobrança "+ultimo+" estornada. O valor volta para o cartão em até 2 faturas."), out.className="ok";
+    else say("Não consegui estornar: "+(d.error_description||d.error||d.message||"erro"),"err");
+  }catch(e){ say("Não consegui estornar: "+(e&&e.message||"erro"),"err"); }
+  bt.textContent="Estornar novamente"; bt.disabled=false;
+}
+</script></body></html>`;
+      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+      res.end(html);
       return;
     }
 
