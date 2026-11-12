@@ -448,7 +448,7 @@ const log=(k,v)=>{o.textContent+="\\n"+k+": "+(typeof v==="string"?v:JSON.string
 
     if (req.method === "POST" && url.pathname === "/estorno") {
       const b = await readBody(req);
-      if (!b.charge_id) return json(res, 400, { error: "charge_id é obrigatório" });
+      if (!b.charge_id) return json(rZes, 400, { error: "charge_id é obrigatório" });
       const tk = await token("boleto");
       const r = await request(`${ENVS[ENV].base}/v1/charge/${encodeURIComponent(b.charge_id)}/refund`, {
         method: "PUT",
